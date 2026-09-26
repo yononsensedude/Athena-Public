@@ -24,10 +24,10 @@ Athena is **free and open source**. You only pay for your AI subscription. But t
 
 | Model | Strengths | Best Used For |
 |:------|:---------|:-------------|
-| **Claude Fable 5** | Deep reasoning, code quality, nuanced analysis | Coding, architecture, verification |
+| **Claude Opus 4.6** | Deep reasoning, code quality, nuanced analysis | Coding, architecture, verification |
 | **Gemini 3.1 Pro** | Broad knowledge, fast synthesis, strong planning | General work, research, planning |
 | **Gemini 3 Flash** | Speed, low cost | Session management (`/start`, `/end`), quick lookups |
-| **GPT-5.6 Sol** | Alternative perspective, good at creative tasks | Trilateral tiebreaker, creative work |
+| **GPT-5.4** | Alternative perspective, good at creative tasks | Trilateral tiebreaker, creative work |
 
 > [!TIP]
 > **The cheapest path to full Athena capability is a single $20/mo subscription** (Claude Pro or Google AI Pro). You don't need multiple subscriptions — one frontier model handles everything. Multiple subs unlock the trilateral feedback loop for high-stakes decisions.
@@ -59,7 +59,7 @@ Model B (e.g., Claude Opus)    →  Opinion 2
                                     ↓
                               Conflict detected?
                                     ↓
-Model C (e.g., GPT-5.6 Sol, Llama) →  Tiebreaker / Synthesis
+Model C (e.g., GPT-5.4, Llama) →  Tiebreaker / Synthesis
 ```
 
 **When to trigger**:
@@ -145,9 +145,9 @@ Quick lookups, formatting  →  ⚡ Fast
 
 ## Further Reading
 
-- [TIPS.md](docs/TIPS.md) — General tips for getting the most out of Athena
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — How Athena's model-agnostic design works
-- [BENCHMARKS.md](docs/BENCHMARKS.md) — Token usage and performance data
+- [TIPS.md](./TIPS.md) — General tips for getting the most out of Athena
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — How Athena's model-agnostic design works
+- [BENCHMARKS.md](./BENCHMARKS.md) — Token usage and performance data
 
 ---
 

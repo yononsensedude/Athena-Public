@@ -26,7 +26,7 @@ import requests
 logger = logging.getLogger("athena.tools.citation_verifier")
 
 CROSSREF_API_URL = "https://api.crossref.org/works"
-USER_AGENT = "Athena-Academic-Verifier/9.9.9 (https://github.com/winstonkoh87/Athena-Public)"
+USER_AGENT = "Athena-Academic-Verifier/9.9.9 (https://github.com/winstonkoh87/Athena; mailto:contact@winstonkoh87.com)"
 
 # Standard DOI pattern matching 10.NNNN/...
 DOI_REGEX = re.compile(

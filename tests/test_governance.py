@@ -288,5 +288,48 @@ class TestGovernanceDoomLoopIntegration(unittest.TestCase):
         self.assertEqual(status["doom_loop"]["total_violations"], 1)
 
 
+class TestConversationIsolation(unittest.TestCase):
+    """P0.5: Tests for multi-agent / multi-conversation governance state isolation."""
+
+    def setUp(self):
+        import tempfile
+        self.tmpdir = tempfile.mkdtemp()
+
+    def test_conversation_state_files_isolated(self):
+        """Engines with different conversation IDs must use different state files."""
+        engine_a = GovernanceEngine(state_dir=Path(self.tmpdir), conversation_id="conv-alpha")
+        engine_b = GovernanceEngine(state_dir=Path(self.tmpdir), conversation_id="conv-beta")
+
+        self.assertNotEqual(engine_a.state_file, engine_b.state_file)
+        self.assertTrue(engine_a.state_file.name.endswith("exchange_state_conv-alpha.json"))
+        self.assertTrue(engine_b.state_file.name.endswith("exchange_state_conv-beta.json"))
+
+        # Mark search on engine_a only
+        engine_a.mark_search_performed("query alpha")
+        self.assertTrue(engine_a._state["semantic_search_performed"])
+        self.assertFalse(engine_b._state["semantic_search_performed"])
+
+        # Reload engine_b from disk to ensure no cross-contamination
+        reloaded_b = GovernanceEngine(state_dir=Path(self.tmpdir), conversation_id="conv-beta")
+        self.assertFalse(reloaded_b._state["semantic_search_performed"])
+
+    def test_get_governance_keyed_by_conversation(self):
+        """get_governance() returns distinct instances for distinct conversation IDs."""
+        from athena.core.governance import get_governance
+
+        inst_1 = get_governance(conversation_id="conv-123")
+        inst_2 = get_governance(conversation_id="conv-456")
+        self.assertIsNot(inst_1, inst_2)
+
+        inst_1_again = get_governance(conversation_id="conv-123")
+        self.assertIs(inst_1, inst_1_again)
+
+    @patch.dict("os.environ", {"ATHENA_CONVERSATION_ID": "env-conv-999"})
+    def test_env_var_conversation_isolation(self):
+        """ATHENA_CONVERSATION_ID environment variable drives state isolation automatically."""
+        engine = GovernanceEngine(state_dir=Path(self.tmpdir))
+        self.assertIn("exchange_state_env-conv-999.json", engine.state_file.name)
+
+
 if __name__ == "__main__":
     unittest.main()

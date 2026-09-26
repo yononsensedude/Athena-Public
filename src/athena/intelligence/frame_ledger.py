@@ -46,11 +46,10 @@ import os
 import re
 import statistics
 import sys
-from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 __all__ = [
     "Hypothesis",
@@ -293,7 +292,7 @@ class FrameRecord:
         return d
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> FrameRecord:
+    def from_dict(cls, data: dict[str, Any]) -> "FrameRecord":
         payload = dict(data)
         payload["hypotheses"] = [
             h if isinstance(h, Hypothesis) else Hypothesis(**h)
@@ -302,7 +301,7 @@ class FrameRecord:
         # `_`-prefixed keys are human metadata/comments in the seed files.
         for key in [k for k in payload if k.startswith("_")]:
             payload.pop(key)
-        known = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
+        known = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
         unknown = set(payload) - known
         if unknown:
             raise ValidationError(f"unknown frame fields: {sorted(unknown)}")
@@ -571,9 +570,9 @@ def validate_frame(frame: FrameRecord) -> ValidationResult:
     # R4 - kill criteria, defined before execution (F-06)
     if not frame.kill_criteria:
         v.append(Violation("R4", "no kill criteria. Without them this is a hope.", "BLOCK"))
-    overlap = {x.strip().lower() for x in frame.kill_criteria} & {
+    overlap = set(x.strip().lower() for x in frame.kill_criteria) & set(
         str(c.get("metric", "")).strip().lower() for c in frame.success_criteria
-    }
+    )
     if overlap:
         v.append(
             Violation(
@@ -901,7 +900,7 @@ def scan_adoption(
         if p.is_file():
             corpus.append(p)
 
-    marker_hits: dict[str, int] = dict.fromkeys(ADOPTION_MARKERS, 0)
+    marker_hits: dict[str, int] = {m: 0 for m in ADOPTION_MARKERS}
     files_with_any = 0
     for path in corpus:
         try:

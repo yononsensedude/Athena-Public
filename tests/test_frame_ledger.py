@@ -41,6 +41,7 @@ from athena.intelligence.frame_ledger import (  # noqa: E402
     validate_frame,
 )
 
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -536,16 +537,10 @@ def test_mcp_tools_are_wired_with_permissions():
     assert expected <= set(TOOL_REGISTRY), f"missing permission entries: {sorted(expected - set(TOOL_REGISTRY))}"
 
 
-_SEED_FRAME = PROJECT_ROOT / "docs" / "audits" / "frames" / "cluster15-redteam-2026-09-23.json"
-
-
-@pytest.mark.skipif(
-    not _SEED_FRAME.exists(),
-    reason="audit seed frame not present in public repo",
-)
 def test_seed_frame_for_this_audit_passes_the_contract():
     """The audit's own pre-registered frame must stay compliant."""
-    frame = build_frame(json.loads(_SEED_FRAME.read_text(encoding="utf-8")))
+    seed = PROJECT_ROOT / "docs" / "audits" / "frames" / "cluster15-redteam-2026-09-23.json"
+    frame = build_frame(json.loads(seed.read_text(encoding="utf-8")))
     result = validate_frame(frame)
     assert result.ok, result.to_ascii()
 
@@ -563,8 +558,6 @@ def test_cluster15_protocol_links_resolve(protocol):
     import re
 
     path = PROJECT_ROOT / protocol
-    if not path.exists():
-        pytest.skip(f"{protocol} not present in this repo layout")
     text = path.read_text(encoding="utf-8")
     dead = []
     for link in re.findall(r"\]\(([^)#]+)\)", text):

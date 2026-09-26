@@ -135,11 +135,11 @@ class MonteCarloResult:
             f"  Mean Final Capital            : S${self.mean_final_capital:,.2f}",
             f"  Median Final Capital          : S${self.median_final_capital:,.2f}",
             f"  Geometric Mean Growth Rate    : {self.growth_rate_geometric_mean * 100:+.2f}% / step",
-            f"  95% Confidence Interval       : [S${self.ci_95_lower:,.2f}, S${self.ci_95_upper:,.2f}]",
-            f"  99% Confidence Interval       : [S${self.ci_99_lower:,.2f}, S${self.ci_99_upper:,.2f}]",
+            f"  95% Prediction Interval       : [S${self.ci_95_lower:,.2f}, S${self.ci_95_upper:,.2f}]",
+            f"  99% Prediction Interval       : [S${self.ci_99_lower:,.2f}, S${self.ci_99_upper:,.2f}]",
             "------------------------------------------------------------",
             f"  Mean Max Drawdown             : -{self.mean_max_drawdown_pct:.1f}%",
-            f"  Worst-Case Max Drawdown (99th): -{self.worst_drawdown_pct:.1f}%",
+            f"  99th Pct Max Drawdown         : -{self.worst_drawdown_pct:.1f}%",
             f"  Ruin Probability (< -50% DD)  : {self.ruin_probability_pct:.2f}%",
             "============================================================",
         ]
@@ -229,13 +229,26 @@ def compute_eev(
 ) -> EEVResult:
     """Computes Economic Expected Value (EEV).
 
-    EEV = (MEV - EU - EO) * (1.0 - skeptic_discount)
+    For positive raw EV:  net_eev = raw_ev * (1.0 - skeptic_discount)
+    For zero/negative EV: net_eev = raw_ev  (discount never shrinks losses)
+
+    Parameters:
+        mev: Gross Monetary Expected Value (S$).
+        eu: Execution & Friction Drag — direct costs (S$). NOT expected utility.
+        eo: Opportunity & Attention Cost (S$).
+        skeptic_discount: Optimism haircut applied ONLY to positive raw EV [0.0, 1.0).
     """
     if skeptic_discount < 0.0 or skeptic_discount >= 1.0:
         raise ValueError("skeptic_discount must be in range [0.0, 1.0)")
 
     raw_ev = mev - eu - eo
-    net_eev = raw_ev * (1.0 - skeptic_discount)
+    # F-04 fix: discount is an optimism haircut — it ONLY applies to positive EV.
+    # Applying it to negative EV would make losses look smaller (the opposite of skepticism).
+    if raw_ev > 0:
+        net_eev = raw_ev * (1.0 - skeptic_discount)
+    else:
+        net_eev = raw_ev  # Losses are reported at full face value
+
     total_drag = eu + eo
     roi_percent = (net_eev / total_drag * 100.0) if total_drag > 0 else (100.0 if net_eev > 0 else 0.0)
 
@@ -313,7 +326,25 @@ def compute_ruin_probability(
     trials_for_sim: int = 10000,
     steps_for_sim: int = 200,
 ) -> RuinResult:
-    """Calculates both analytical and empirical Gambler's Ruin probability."""
+    """Calculates ruin probability via two DIFFERENT models.
+
+    WARNING (F-02 Red-Team Finding, 2026-09-26):
+    The analytical and simulated estimates model DIFFERENT stochastic processes:
+
+    - ANALYTICAL: Classic Gambler's Ruin on a LINEAR random walk with fixed
+      bet sizes (additive P&L). Uses P(Ruin) = (q / (p*b))^units where
+      units = drawdown_threshold / risk_fraction. This is an APPROXIMATION
+      appropriate for small fixed-fraction bets where multiplicative effects
+      are negligible.
+
+    - SIMULATION: Geometric (multiplicative) compounding where each step
+      changes capital by ±(risk_fraction * capital). Models real leveraged
+      trading more accurately but is path-dependent and step-count-sensitive.
+
+    These two estimates are NOT cross-validation pairs — they answer slightly
+    different questions. The verdict uses the MORE CONSERVATIVE (higher) of
+    the two to err on the side of safety per Law #1 (Never Risk Ruin).
+    """
     if not (0.0 < win_rate < 1.0):
         raise ValueError("win_rate must be strictly between 0 and 1")
     if payoff_ratio <= 0.0 or risk_per_trade_fraction <= 0.0:
@@ -324,7 +355,7 @@ def compute_ruin_probability(
     b = payoff_ratio
     edge = (p * b) - q
 
-    # Analytical approximation of ruin:
+    # Analytical approximation of ruin (LINEAR/additive random walk model):
     # Units to ruin = ruin_drawdown_threshold / risk_per_trade_fraction
     units = ruin_drawdown_threshold / risk_per_trade_fraction
     if edge <= 0.0:
@@ -335,7 +366,7 @@ def compute_ruin_probability(
         ratio = q / (p * b) if (p * b) > 0 else 1.0
         analytical_ruin = min(1.0, math.pow(ratio, units)) if ratio < 1.0 else 1.0
 
-    # Empirical Monte Carlo simulation for verification
+    # Empirical Monte Carlo simulation (GEOMETRIC/multiplicative model):
     ruin_count = 0
     rng = random.Random(42)
     for _ in range(trials_for_sim):
@@ -354,13 +385,16 @@ def compute_ruin_probability(
             dd = (peak - cap) / peak
             if dd >= ruin_drawdown_threshold or cap <= (1.0 - ruin_drawdown_threshold):
                 ruin_count += 1
-                break
+                break  # F-03: absorbing barrier — stop this trial on ruin
 
     simulated_ruin = ruin_count / trials_for_sim
 
-    if simulated_ruin > 0.05 or analytical_ruin > 0.05:
+    # F-02 fix: use the MORE CONSERVATIVE (higher) estimate for the verdict
+    conservative_ruin = max(simulated_ruin, analytical_ruin)
+
+    if conservative_ruin > 0.05:
         verdict = "VETO (Violates Law #1: Ruin Probability > 5.0%)"
-    elif simulated_ruin > 0.01:
+    elif conservative_ruin > 0.01:
         verdict = "CAUTION (Elevated Left-Tail Risk: 1.0% - 5.0%)"
     else:
         verdict = "PASS (Ergodic & Safe: Ruin Probability < 1.0%)"
@@ -388,7 +422,31 @@ def run_monte_carlo_simulation(
     ruin_threshold_pct: float = 50.0,
     seed: int | None = 42,
 ) -> MonteCarloResult:
-    """Executes a 10,000-trial geometric trajectory simulation with left-tail shocks."""
+    """Executes a geometric trajectory simulation with left-tail shocks.
+
+    NOTE: Reported 'ci_95/99' values are 2.5th/97.5th percentile PREDICTION
+    INTERVALS of simulated terminal capital, NOT confidence intervals for a
+    population parameter. 'worst_drawdown_pct' is the 99th percentile of
+    max drawdown (not the absolute worst case).
+    """
+    # F-03 fix: validate all inputs
+    if n_trials <= 0:
+        raise ValueError(f"n_trials must be positive, got {n_trials}")
+    if n_steps <= 0:
+        raise ValueError(f"n_steps must be positive, got {n_steps}")
+    if initial_capital <= 0:
+        raise ValueError(f"initial_capital must be positive, got {initial_capital}")
+    if not (0.0 <= win_rate <= 1.0):
+        raise ValueError(f"win_rate must be in [0.0, 1.0], got {win_rate}")
+    if math.isnan(win_rate) or math.isnan(risk_fraction) or math.isnan(payoff_ratio):
+        raise ValueError("win_rate, risk_fraction, and payoff_ratio must not be NaN")
+    if math.isinf(risk_fraction) or math.isinf(payoff_ratio):
+        raise ValueError("risk_fraction and payoff_ratio must be finite")
+    if risk_fraction < 0:
+        raise ValueError(f"risk_fraction must be non-negative, got {risk_fraction}")
+    if payoff_ratio <= 0:
+        raise ValueError(f"payoff_ratio must be positive, got {payoff_ratio}")
+
     rng = random.Random(seed)
     final_capitals: list[float] = []
     max_drawdowns: list[float] = []
@@ -418,13 +476,12 @@ def run_monte_carlo_simulation(
                 max_dd = dd
 
             if cap <= initial_capital * (1.0 - ruin_threshold_pct / 100.0):
-                # Absorbing barrier for ruin
-                cap = max(0.0, cap)
+                # F-03 fix: Absorbing barrier — stop trading this trial on ruin
+                ruin_count += 1
+                break
 
         final_capitals.append(cap)
         max_drawdowns.append(max_dd)
-        if max_dd >= ruin_threshold_pct or cap <= initial_capital * 0.5:
-            ruin_count += 1
 
     final_capitals.sort()
     max_drawdowns.sort()
@@ -480,17 +537,32 @@ def compute_mcda(
 ) -> MCDAResult:
     """Computes Multiple-Criteria Decision Analysis (MCDA) with deterministic sensitivity and §3A veto screening.
 
+    Uses weighted-sum scoring with user-specified weights (NOT AHP).
+
     Performs:
-    1. Hard-constraint feasibility screen (DEC-500 §3A VETO).
-    2. Base composite scoring using normalized weights (DEC-500 §3C-3D) on feasible candidates.
-    3. Pairwise dominance inspection (§3F).
-    4. ±10% weight perturbation sensitivity testing across each criterion (§3E).
-    5. Deterministic stability verification and Path D / Path E routing.
+    1. Input validation (fail-closed on NaN, Inf, negative weights, duplicates).
+    2. Hard-constraint feasibility screen (DEC-500 §3A VETO) — fail-closed on unknown keys.
+    3. Base composite scoring using normalized weights (DEC-500 §3C-3D) on feasible candidates.
+    4. Pairwise dominance inspection (§3F).
+    5. ±10% weight perturbation sensitivity testing across each criterion (§3E).
+    6. Deterministic stability verification and Path D / Path E routing.
     """
     if not candidates:
         raise ValueError("candidates list cannot be empty")
     if not criteria:
         raise ValueError("criteria list cannot be empty")
+
+    # F-05 fix: reject duplicate candidates
+    if len(candidates) != len(set(candidates)):
+        seen = set()
+        dupes = [c for c in candidates if c in seen or seen.add(c)]
+        raise ValueError(f"Duplicate candidate names detected: {dupes}")
+
+    # F-05 fix: reject duplicate criteria
+    if len(criteria) != len(set(criteria)):
+        seen = set()
+        dupes = [c for c in criteria if c in seen or seen.add(c)]
+        raise ValueError(f"Duplicate criteria names detected: {dupes}")
 
     # Format weights
     weight_dict: dict[str, float] = {}
@@ -505,6 +577,15 @@ def compute_mcda(
             weight_dict[crit] = float(weights[crit])
     else:
         raise TypeError("weights must be a list or dict")
+
+    # F-05 fix: reject NaN, Inf, and negative weights
+    for crit, w in weight_dict.items():
+        if math.isnan(w):
+            raise ValueError(f"Weight for criterion '{crit}' is NaN — all weights must be finite non-negative numbers")
+        if math.isinf(w):
+            raise ValueError(f"Weight for criterion '{crit}' is infinite — all weights must be finite non-negative numbers")
+        if w < 0:
+            raise ValueError(f"Negative weight for criterion '{crit}' ({w}) — all weights must be non-negative")
 
     total_weight = sum(weight_dict.values())
     if total_weight <= 0:
@@ -529,19 +610,44 @@ def compute_mcda(
         else:
             raise TypeError(f"Scores for {cand} must be list or dict")
 
+    # F-05 fix: reject NaN and Inf scores
+    for cand in candidates:
+        for crit in criteria:
+            val = score_matrix[cand][crit]
+            if math.isnan(val):
+                raise ValueError(f"Score for candidate '{cand}', criterion '{crit}' is NaN — all scores must be finite")
+            if math.isinf(val):
+                raise ValueError(f"Score for candidate '{cand}', criterion '{crit}' is infinite — all scores must be finite")
+
     # 1. DEC-500 §3A Hard-Constraint VETO Gate
     veto_screen_applied = veto_floors is not None
     vetoed_candidates: dict[str, list[str]] = {}
     feasible_candidates: list[str] = []
 
     if veto_screen_applied:
+        # F-01 fix: fail-closed on empty veto dict
+        if not veto_floors:
+            raise ValueError(
+                "veto_floors is an empty dict — this signals intent to screen but screens nothing. "
+                "Provide at least one hard-constraint floor, or pass veto_floors=None to skip screening."
+            )
+        # F-01 fix: fail-closed on unknown veto keys
+        veto_keys = set(veto_floors.keys())
+        criteria_keys = set(criteria)
+        unknown_keys = veto_keys - criteria_keys
+        if unknown_keys:
+            raise ValueError(
+                f"Veto floor key(s) {unknown_keys} are not scored criteria {criteria_keys}. "
+                f"This would silently skip the constraint check (fail-open). "
+                f"Fix the key names to match criteria exactly."
+            )
+
         for cand in candidates:
             breaches = []
             for crit, floor in veto_floors.items():
-                if crit in score_matrix[cand]:
-                    actual_score = score_matrix[cand][crit]
-                    if actual_score < floor:
-                        breaches.append(f"Breached {crit} floor ({actual_score:.2f} < {floor:.2f})")
+                actual_score = score_matrix[cand][crit]
+                if actual_score < floor:
+                    breaches.append(f"Breached {crit} floor ({actual_score:.2f} < {floor:.2f})")
             if breaches:
                 vetoed_candidates[cand] = breaches
             else:
@@ -665,13 +771,13 @@ def compute_mcda(
         if len(feasible_candidates) == 1:
             stability_verdict = "ROBUST (Sole surviving feasible candidate after hard-constraint screen)"
             if veto_screen_applied:
-                verdict = f"DECISION LOCKED -> COMMIT PRIMARY TO '{winner}' (SOLE FEASIBLE PATH)"
+                verdict = f"RECOMMENDED (SCORED) -> '{winner}' IS SOLE FEASIBLE PATH"
             else:
                 verdict = f"ADVISORY ONLY (NO VETO SCREEN) -> PRIMARY PREFERENCE IS '{winner}'"
         else:
             stability_verdict = "ROBUST (Stable winner across all ±10% weight perturbations)"
             if veto_screen_applied:
-                verdict = f"DECISION LOCKED -> COMMIT PRIMARY TO '{winner}' WITH LIVE CONTINGENCY TO '{runner_up}'"
+                verdict = f"RECOMMENDED (SCORED) -> '{winner}' WITH CONTINGENCY '{runner_up}'"
             else:
                 verdict = f"ADVISORY ONLY (NO VETO SCREEN) -> PRIMARY PREFERENCE IS '{winner}' WITH CONTINGENCY TO '{runner_up}'"
     else:

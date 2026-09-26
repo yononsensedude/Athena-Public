@@ -126,6 +126,16 @@ class TestSessionService(unittest.TestCase):
             receipt = sessions_mod.close_session(session_path=session_file)
             self.assertEqual(receipt["status"], "SUCCESS")
 
+    def test_s_sequence_detection(self):
+        """Verify SessionService detects existing SNNNN sessions and increments correctly."""
+        self.sessions_dir.mkdir(parents=True, exist_ok=True)
+        # Create an existing S-series session file
+        existing_log = self.sessions_dir / "2026-09-27-session-S100.md"
+        existing_log.write_text("---\nsession_id: 2026-09-27-session-S100\n---\n", encoding="utf-8")
+
+        new_session = self.service.create_session(focus="S-series test")
+        self.assertIn("-session-S101.md", new_session.name)
+
 
 if __name__ == "__main__":
     unittest.main()

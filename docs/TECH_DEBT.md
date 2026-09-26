@@ -51,7 +51,7 @@ last_updated: 2026-07-22
 | Status | Item | Notes |
 |--------|------|-------|
 | ✅ Done | **The Great Archival** | Moved 20+ Orphaned Scripts & Legacy SQL to `archive/consolidated_2026_01/` |
-| ✅ Done | Sidecar exclusion patterns | Prevents indexing of `notes/`, `Athena-Public/`, `archive/`, `history/` |
+| ✅ Done | Sidecar exclusion patterns | Prevents indexing of `Winston/`, `Athena-Public/`, `archive/`, `history/` |
 | ✅ Done | Master Schema consolidation | `supabase/MASTER_SCHEMA.sql` — single source of truth (8 tables, 8 functions) |
 | ✅ Done | Context history folder | Created `.context/history/implementation_plans_2025/` for RAG noise reduction |
 | ✅ Done | Public repo blind spots | Fixed 12 issues in `Athena-Public` (see commit a22016d) |
@@ -165,76 +165,6 @@ last_updated: 2026-07-22
 
 ## Open Items (Lower Priority)
 
-### P3: Lint scope gaps and a detector that over-reports (NEW — Jul 25, 2026)
-
-Filed after the v9.9.8 guard-integrity sweep. None are correctness bugs — the
-correctness bugs were fixed. These are deliberately deferred, each with a
-reason that should be re-tested before anyone acts on it.
-
-1. **`examples/` is only gated for executability.** CI runs
-   `ruff check examples/ --select F821,F822,F823,E9` — undefined names and
-   syntax errors, i.e. "this file cannot run". Full lint would be 1,593
-   findings, nearly all blank-line whitespace, and a step demanding that
-   cleanup would simply get skipped. The narrowing is intentional and stated;
-   revisit only alongside a whitespace pass.
-
-2. **Whitespace debt (~1,593 findings in `examples/`).** One command to fix,
-   but a ~2,000-line diff across many files that changes no behaviour. Do it
-   alone, in its own commit, never bundled with a behavioural change.
-
-3. **Privacy gate degrades silently on fork PRs.** `PRIVACY_EXTRA_PATTERNS`
-   is a repo secret, and GitHub does not pass secrets to pull requests from
-   forks. The gate there runs blocklist-only (12 structural patterns instead
-   of 41), prints a notice, and still exits 0. No clean fix exists — recorded
-   so a green fork-PR gate is not mistaken for full coverage. Maintainers
-   should re-run the full scan locally before merging any fork PR.
-
-4. **11 `F401` findings are deliberate.** Imports inside `try:` blocks that
-   feature-detect optional dependencies (formatron, transformers, sklearn,
-   scrapling, google.genai). Removing them breaks the detection they exist to
-   perform. Left visible rather than silenced with `# noqa`, since the file
-   list is short and the intent is documented here.
-
-### P2: PyPI package trails the repo (NEW — Jul 25, 2026)
-
-**Context**: `scripts/sync_version.py --check` now covers every version surface
-*inside* the repo, and they all read v9.9.8. The published artifact does not.
-
-- PyPI `athena-agent` latest release: **9.2.6**
-- Repo SSOT (`pyproject.toml`): **9.9.8**
-- The PyPI listing's `project_urls` point at this repository, so anyone who
-  finds the package installs something roughly seven minor versions behind
-  what the docs here describe.
-
-Not caught by the version guard by design — it checks the tree, and the tree
-is now self-consistent. This is a *publish* gap, not a drift gap.
-
-There was exactly one release ever (9.2.6, uploaded 2026-02-24) and no
-publish automation — a manual one-off that then drifted for five months.
-
-**Now unblocked.** `.github/workflows/release.yml` (added 2026-07-25) does the
-whole path on a `v*` tag: refuses to publish if the tag and `pyproject.toml`
-disagree, runs `sync_version.py --check`, builds sdist + wheel, `twine check`s
-them, installs the wheel into a clean venv and asserts `athena.__version__`
-matches the tag, then publishes via PyPI Trusted Publishing (OIDC — no token
-stored in the repo).
-
-Verified locally at v9.9.8: both artifacts build, twine check passes, clean
-venv install works, `import athena` reports 9.9.8, console script registers.
-
-**Remaining, owner-only** (needs the PyPI account — cannot be scripted):
-
-1. pypi.org → athena-agent → Manage → Publishing → add a GitHub publisher:
-   owner `winstonkoh87`, repo `Athena-Public`, workflow `release.yml`,
-   environment `pypi`.
-2. GitHub → Settings → Environments → create `pypi`.
-3. `git tag v9.9.8 && git push origin v9.9.8`.
-
-Until step 3 lands, do not add `pip install athena-agent` to any install
-instructions — it would hand users the 9.2.6 build. The workflow is inert
-until then: no tag, no run, and without the publisher it fails closed rather
-than publishing with a stray credential.
-
 ### P2: README Post-Clone CTA (NEW — Feb 02, 2026)
 
 **Context**: GitHub Traffic Analysis (14-day window)
@@ -245,7 +175,7 @@ than publishing with a stray credential.
 
 **Action Required**:
 
-1. Add explicit CTA to README: "Cloned? Start here: [YOUR_FIRST_AGENT.md](docs/YOUR_FIRST_AGENT.md)"
+1. Add explicit CTA to README: "Cloned? Start here: [YOUR_FIRST_AGENT.md](./YOUR_FIRST_AGENT.md)"
 2. Consider Reddit follow-up post (highest quality external traffic source: 40 unique visitors)
 
 **Traffic Sources**:

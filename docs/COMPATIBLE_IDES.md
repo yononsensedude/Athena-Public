@@ -6,14 +6,16 @@ Athena works with **any agent that reads Markdown**. For agents that support pro
 
 ## First-Class Integrations
 
-| Agent | Config File Generated | Init Command |
-|:------|:---------------------|:-------------|
-| [Antigravity](https://antigravity.google/) | `AGENTS.md` | `athena init --ide antigravity` |
-| [Cursor](https://cursor.com) | `.cursor/rules.md` | `athena init --ide cursor` |
-| [VS Code + Copilot](https://code.visualstudio.com/) | `.vscode/settings.json` | `athena init --ide vscode` |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `.gemini/AGENTS.md` | `athena init --ide gemini` |
-| [Kilo Code](https://kilocode.ai/) | `.kilocode/rules/athena.md` | `athena init --ide kilocode` |
-| [Zoo Code](https://github.com/Zoo-Code-Org/Zoo-Code) | `.roo/rules/athena.md` | `athena init --ide zoocode` |
+| Agent | Config File Generated | Init Command | Governance Enforcement |
+|:------|:---------------------|:-------------|:-----------------------|
+| [Antigravity](https://antigravity.google/) | `AGENTS.md` | `athena init --ide antigravity` | ⚠️ MCP-measured (H1 roadmap -> H2 extension) |
+| [Cursor](https://cursor.com) | `.cursor/rules.md` | `athena init --ide cursor` | ⚠️ Agent-discretion |
+| [VS Code + Copilot](https://code.visualstudio.com/) | `.vscode/settings.json` | `athena init --ide vscode` | ⚠️ Agent-discretion |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `.gemini/AGENTS.md` | `athena init --ide gemini` | ⚠️ Agent-discretion |
+| [Kilo Code](https://kilocode.ai/) | `.kilocode/rules/athena.md` | `athena init --ide kilocode` | ⚠️ Agent-discretion |
+| [Roo Code](https://roocode.com/) | `.roo/rules/athena.md` | `athena init --ide roocode` | ⚠️ Agent-discretion |
+
+> See [AG_GOVERNANCE_PARITY_PLAN.md](./AG_GOVERNANCE_PARITY_PLAN.md) for the 3-horizon plan to bring Antigravity to 100% harness-enforced governance parity with Claude Code.
 
 ## Generic (No Init Required)
 
@@ -44,8 +46,8 @@ To add support for a new IDE:
 1. Determine where the IDE reads its agent rules from (e.g., `.cursor/rules.md`)
 2. Add a template constant and handler to `src/athena/cli/init.py`
 3. Add the IDE name to the `choices` list in `src/athena/__main__.py`
-4. Submit a PR — see [CONTRIBUTING.md](CONTRIBUTING.md)
+4. Submit a PR — see [CONTRIBUTING.md](https://github.com/winstonkoh87/Athena-Public/blob/main/CONTRIBUTING.md)
 
 ---
 
-**[Back to README](README.md)**
+**[Back to README](../README.md)**

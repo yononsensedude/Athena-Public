@@ -114,17 +114,10 @@ Every permission check is logged with timestamp, action, target, and outcome. Au
 ## Dependencies
 
 ```bash
-# From inside the cloned repo — this installs the `mcp` extra declared in
-# pyproject.toml (fastmcp>=2.0.0).
-pip install -e ".[mcp]"
-
-# Or just the dependency, if you are not installing the package:
-pip install "fastmcp>=2.0.0"
+pip install fastmcp>=2.0.0
+# or
+pip install athena-cli[mcp]
 ```
-
-> ⚠️ Do **not** `pip install athena-cli` — that is an unrelated third-party
-> package (a Presto-like CLI for AWS Athena), not this project. This page
-> previously recommended it, contradicting the warning in the README.
 
 ---
 

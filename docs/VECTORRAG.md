@@ -1,6 +1,6 @@
 # VectorRAG: Semantic Memory Architecture
 
-> **Last Updated**: 23 July 2026  
+> **Last Updated**: 22 July 2026  
 > **Purpose**: Technical documentation for Athena's semantic memory system (sole semantic search layer)
 
 ---
@@ -13,30 +13,8 @@
 |:----------|:-----------|:--------|
 | **Vector Database** | Supabase + pgvector | Cloud-native, persistent storage |
 | **Embeddings** | Google `gemini-embedding-001` | 3072-dimension semantic vectors |
-| **Granularity** | Chunk-level (4,000-char windows, 400-char overlap) | Finer retrieval than whole-file |
-| **Similarity** | Cosine Distance (`<=>`), exact scan | Meaning-based matching |
-| **Re-ranking** | CrossEncoder (sentence-transformers) | Re-scores fused candidates → [RERANKER.md](RERANKER.md) |
-| **Live grounding** | DuckDuckGo web scrape (opt-in) | Fused into RRF at weight 2.8 |
+| **Similarity** | Cosine Distance (`<=>`) | Meaning-based matching |
 | **Sync** | Python Scripts | Automated indexing pipeline |
-
-> [!IMPORTANT]
-> **Update (19 June 2026)**: Retrieval moved from **document-level** to **chunk-level** embeddings (4,000-char windows w/ 400-char overlap), the embedding model migrated to `gemini-embedding-001`, a **CrossEncoder reranker** stage was added after RRF fusion, and **live web grounding** was fused into the same ranking. See [Chunk-Level Embeddings](#chunk-level-embeddings) and [RERANKER.md](RERANKER.md).
-
----
-
-## Chunk-Level Embeddings
-
-Early VectorRAG embedded one vector per file. Large session logs and protocols diluted the signal — a 20KB document compressed into a single 3,072-dim vector loses local detail. Athena now **chunks** documents before embedding:
-
-| Parameter | Value | Rationale |
-|:----------|:------|:----------|
-| **Chunk size** | 4,000 characters | Large enough for coherent context, small enough for sharp vectors |
-| **Overlap** | 400 characters | Prevents semantic loss at chunk boundaries |
-| **Table** | `document_chunks` (VECTOR(3072)) | Chunks carry `file_path` + `chunk_index` for reassembly |
-| **Scale** | ~5,700 chunks indexed | From ~850 source documents |
-
-> [!NOTE]
-> **Why exact scan, not an index?** pgvector's `ivfflat` index is capped at **2,000 dimensions**. At 3,072 dims an approximate index is unavailable, so Athena runs an **exact sequential scan** — which returns in **sub-millisecond** time under ~10,000 records. For a personal knowledge base this is structurally superior: zero index-staleness, exact recall, negligible latency.
 
 ---
 
@@ -70,7 +48,6 @@ flowchart TB
         CASES["Case Studies<br/>(40+ files)"]
         PROTOCOLS["Protocols<br/>(170+ files)"]
         PROFILE["User Profile<br/>(Preferences, Settings)"]
-        ENTITIES["Entity Data<br/>(External Imports)"]
     end
     
     subgraph SYNC["⚙️ Sync Pipeline"]
@@ -92,18 +69,16 @@ flowchart TB
         T8["workflows"]
         T9["user_profile"]
         T10["system_docs"]
-        T11["entities"]
     end
     
     SESSIONS --> PARSE
     CASES --> PARSE
     PROTOCOLS --> PARSE
     PROFILE --> PARSE
-    ENTITIES --> PARSE
     
     PARSE --> EMBED
     EMBED --> UPLOAD
-    UPLOAD --> T1 & T2 & T3 & T4 & T5 & T6 & T7 & T8 & T9 & T10 & T11
+    UPLOAD --> T1 & T2 & T3 & T4 & T5 & T6 & T7 & T8 & T9 & T10
     
     style LOCAL fill:#1e3a5f,stroke:#4a9eff,color:#fff
     style SYNC fill:#2d4a3e,stroke:#4ade80,color:#fff
@@ -130,10 +105,15 @@ sequenceDiagram
     A->>G: Embed query text
     G-->>A: Return 3072-dim vector
     
-    A->>S: search_all_vectors(embedding, threshold=0.3)
-    S-->>A: Fused matches across all 11 domains (sessions, cases, protocols, ...)
+    A->>S: search_sessions(embedding, threshold=0.3)
+    S-->>A: Top 5 matches with similarity scores
     
-    Note over A: RRF fusion (k=60) + CrossEncoder rerank
+    A->>S: search_case_studies(embedding)
+    S-->>A: Related case studies
+    
+    A->>S: search_protocols(embedding)
+    S-->>A: Relevant protocols
+    
     Note over A: Synthesize context
     
     A->>U: "In Session 15, we designed the API structure..."
@@ -174,15 +154,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- NOTE: ivfflat is capped at 2,000 dims and is NOT usable at 3,072.
--- Athena relies on exact sequential scan (sub-ms under ~10k records).
--- CREATE INDEX ... USING ivfflat (...)  -- unavailable at 3072 dims
+-- IVFFlat index for fast similarity search
+CREATE INDEX ON sessions 
+USING ivfflat (embedding vector_cosine_ops) 
+WITH (lists = 100);
 ```
 
 ### Search Functions (RPC)
-
-> [!NOTE]
-> The production engine calls a single **unified** `search_all_vectors(query_embedding, match_threshold, match_count)` RPC that scans all 11 domain tables and returns one fused, source-tagged result set. The per-table function below shows the underlying cosine pattern each domain follows.
 
 ```sql
 CREATE OR REPLACE FUNCTION search_sessions(
@@ -217,7 +195,7 @@ $$;
 
 ---
 
-## The 11 Searchable Domains
+## The 10 Searchable Domains
 
 ```text
                               ┌─────────────────────────────────────┐
@@ -229,9 +207,9 @@ $$;
      │     Memory      │           │      Skills       │          │    Reference      │
      └────────┬────────┘           └─────────┬─────────┘          └─────────┬─────────┘
               │                              │                              │
-    ┌─────────┼─────────┐          ┌─────────┼─────────┐          ┌─────────┼─────────┐
-    │         │         │          │         │         │          │         │         │
-sessions  case_studies entities  protocols capabilities playbooks frameworks references workflows
+         ┌────┴────┐               ┌─────────┼─────────┐          ┌─────────┼─────────┐
+         │         │               │         │         │          │         │         │
+     sessions  case_studies    protocols capabilities playbooks frameworks references workflows
                                                                                  │
                               ┌──────────────────────────────────────────────────┘
                               │
@@ -248,7 +226,6 @@ sessions  case_studies entities  protocols capabilities playbooks frameworks ref
 |:-------|:------|:------|:------------|
 | **Sessions** | `sessions` | ~468 | Daily interaction logs |
 | **Case Studies** | `case_studies` | ~75 | Pattern analysis documents |
-| **Entities** | `entities` | ~100 chunks | External data imports |
 | **Protocols** | `protocols` | ~226 | Reusable thinking patterns |
 | **Capabilities** | `capabilities` | ~10 | Tool/skill definitions |
 | **Playbooks** | `playbooks` | ~5 | Strategic guides |
@@ -264,10 +241,10 @@ sessions  case_studies entities  protocols capabilities playbooks frameworks ref
 
 ## The Sync Pipeline
 
-### Script: `sync.py`
+### Script: `supabase_sync.py`
 
 ```bash
-# Reference: python3 scripts/sync.py --all
+# Reference: python3 scripts/supabase_sync.py --all
 ```
 
 ```mermaid
@@ -301,15 +278,15 @@ flowchart LR
 ```python
 def get_embedding(text: str) -> list[float]:
     """Generate 3072-dim embedding using Google Gemini."""
-    text = text[:32000]  # Token limit (chunks are 4,000 chars, well under)
-
+    text = text[:32000]  # Token limit
+    
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={GOOGLE_API_KEY}"
-
+    
     payload = {
         "model": "models/gemini-embedding-001",
         "content": {"parts": [{"text": text}]}
     }
-
+    
     response = requests.post(url, json=payload)
     return response.json()["embedding"]["values"]
 ```
@@ -318,17 +295,17 @@ def get_embedding(text: str) -> list[float]:
 
 ## Query Interface
 
-### Script: `smart_search.py`
+### Script: `supabase_search.py`
 
 ```bash
 # Search everything
-# Reference: python3 scripts/smart_search.py "API design"
+# Reference: python3 scripts/supabase_search.py "API design"
 
 # Search specific domain
-# Reference: python3 scripts/smart_search.py "authentication" --sessions-only
+# Reference: python3 scripts/supabase_search.py "authentication" --sessions-only
 
 # Adjust sensitivity
-# Reference: python3 scripts/smart_search.py "database schema" --threshold 0.5 --limit 10
+# Reference: python3 scripts/supabase_search.py "database schema" --threshold 0.5 --limit 10
 ```
 
 ### Output Example
@@ -358,17 +335,17 @@ def get_embedding(text: str) -> list[float]:
 
 VectorRAG is **not optional**. Per Core Identity §0.7.1:
 
-> **Semantic Context Protocol**: Run `smart_search.py` at the start of EVERY query to inject relevant context.
+> **Semantic Context Protocol**: Run `supabase_search.py` at the start of EVERY query to inject relevant context.
 
 ### Trigger Matrix
 
 | User Query Pattern | Automatic Action |
 |:-------------------|:-----------------|
-| "What did we discuss about X?" | `smart_search.py "X"` |
-| "Find sessions where..." | `smart_search.py` |
-| "Remember when we talked about..." | `smart_search.py` |
-| Case study lookup | `smart_search.py --cases-only` |
-| Protocol recall | `smart_search.py --protocols-only` |
+| "What did we discuss about X?" | `supabase_search.py "X"` |
+| "Find sessions where..." | `supabase_search.py` |
+| "Remember when we talked about..." | `supabase_search.py` |
+| Case study lookup | `supabase_search.py --cases-only` |
+| Protocol recall | `supabase_search.py --protocols-only` |
 
 ---
 
@@ -406,8 +383,8 @@ VectorRAG is **not optional**. Per Core Identity §0.7.1:
 
 | File | Purpose | Lines |
 |:-----|:--------|:------|
-| `sync.py` | Indexing pipeline | ~970 |
-| `smart_search.py` | Query interface | ~390 |
+| `supabase_sync.py` | Indexing pipeline | ~970 |
+| `supabase_search.py` | Query interface | ~390 |
 | `migrations/*.sql` | Table/function definitions | ~168 |
 
 ---
@@ -473,12 +450,10 @@ VectorRAG is **not optional**. Per Core Identity §0.7.1:
 
 ## Future Enhancements
 
-* [x] **Hybrid Search**: Combine vector + lexical channels (canonical, filename, sqlite) for precision → See [SEMANTIC_SEARCH.md](SEMANTIC_SEARCH.md)
-* [x] **Chunking Strategy**: Split large documents (4,000-char windows, 400 overlap) for finer retrieval → [Chunk-Level Embeddings](#chunk-level-embeddings)
-* [x] **Reranking**: CrossEncoder re-scores fused candidates → [RERANKER.md](RERANKER.md)
-* [x] **Live Web Grounding**: Fuse real-time web results into RRF (weight 2.8)
+* [x] **Hybrid Search**: Combine vector + keyword + TAG_INDEX for precision → See [SEMANTIC_SEARCH.md](./SEMANTIC_SEARCH.md)
 * [ ] **Auto-Reindex**: Trigger sync on file save (via GitHub webhook)
 * [ ] **Cross-Reference**: Link sessions to protocols to case studies
+* [ ] **Chunking Strategy**: Split large documents for finer retrieval
 
 ---
 

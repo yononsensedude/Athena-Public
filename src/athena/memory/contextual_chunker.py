@@ -24,6 +24,8 @@ Retires: naive chunk_text() as the primary chunking path in sync.py.
 from __future__ import annotations
 
 import re
+from pathlib import Path
+
 
 # ---------------------------------------------------------------------------
 # Heading hierarchy tracker

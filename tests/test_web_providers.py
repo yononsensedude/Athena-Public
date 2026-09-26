@@ -102,7 +102,7 @@ class TestWebProviders(unittest.TestCase):
 
     def test_get_web_health(self):
         """6. Test get_web_health returns proper structure"""
-        with patch.dict(os.environ, {"SERPER_API_KEY": "123", "BRAVE_API_KEY": ""}):
+        with patch.dict(os.environ, {"SERPER_API_KEY": "123", "BRAVE_API_KEY": "", "BRAVE_SEARCH_API_KEY": ""}):
             health = get_web_health()
 
             self.assertIn("providers", health)

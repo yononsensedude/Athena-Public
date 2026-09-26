@@ -1,6 +1,6 @@
 ---
 created: 2026-02-12
-last_updated: 2026-09-27
+last_updated: 2026-09-05
 tags: #references #apa #academic #citations
 ---
 
@@ -130,7 +130,7 @@ Yao, S., Zhao, J., Yu, D., Du, N., Shafran, I., Narasimhan, K., & Cao, Y. (2023)
 
 Packer, C., Wooders, S., Lin, K., Fang, V., Patil, S. G., Stoica, I., & Gonzalez, J. E. (2023). MemGPT: Towards LLMs as operating systems. *arXiv preprint arXiv:2310.08560*. <https://arxiv.org/abs/2310.08560>
 
-> **Note**: MemGPT introduced OS-style virtual memory management for LLMs — a fixed context window treated as RAM, with paging to external storage. Athena's JIT boot (2K–20K tokens loaded from a much larger disk-resident memory) is the same architectural insight, implemented as files + retrieval rather than a runtime. The "Linux OS for AI Agents" framing has a direct academic analogue here.
+> **Note**: MemGPT introduced OS-style virtual memory management for LLMs — a fixed context window treated as RAM, with paging to external storage. Athena's JIT boot (2K–20K tokens loaded from a much larger disk-resident memory) is the same architectural insight, implemented as files + retrieval rather than a runtime. The "local-first context OS" framing has a direct academic analogue here.
 
 Park, J. S., O'Brien, J. C., Cai, C. J., Morris, M. R., Liang, P., & Bernstein, M. S. (2023). Generative agents: Interactive simulacra of human behavior. *Proceedings of the 36th Annual ACM Symposium on User Interface Software and Technology (UIST '23)*, 1–22. <https://doi.org/10.1145/3586183.3606763>
 

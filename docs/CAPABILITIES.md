@@ -37,7 +37,7 @@
 | `supabase_sync.py` | Full memory sync to pgvector with chunking and deduplication |
 | `supabase_search.py` | Hybrid RAG search (semantic + keyword + reranking) |
 | `smart_search.py` | Weighted RRF orchestration with cross-encoder rerank |
-| `upload_to_supabase.py` | Bulk embedding upload with rate limiting |
+| `upload_to_supabase.py` | Supabase **Storage** bucket CLI — upload/download/list files, create buckets (not embeddings; those go through `supabase_sync.py`) |
 
 ### Knowledge Graph (DEPRECATED — Removed S435, 6 June 2026)
 
@@ -230,8 +230,8 @@ athena/
 |-------|------------|
 | **Language** | Python 3.x |
 | **Vector DB** | Supabase (pgvector) |
-| **Embeddings** | Google text-embedding-004 |
-| **LLM** | Gemini 3.5 Pro (preview) / Claude Fable 5 |
+| **Embeddings** | Google gemini-embedding-001 |
+| **LLM** | Gemini 3.1 Pro / Claude Opus 4.6 |
 | **Hosting** | GitHub Pages / Cloudflare |
 
 ---

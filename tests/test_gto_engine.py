@@ -29,9 +29,10 @@ def test_compute_eev_positive_asymmetry():
 def test_compute_eev_negative():
     res = compute_eev(mev=200.0, eu=150.0, eo=100.0, skeptic_discount=0.10)
     # raw_ev = 200 - 250 = -50
-    # net_eev = -50 * 0.9 = -45.0
+    # F-04 fix: negative raw_ev is NOT discounted (losses at full face value)
+    # net_eev = -50.0 (unchanged — discount only applies to positive EV)
     assert res.raw_ev == -50.0
-    assert res.net_eev == -45.0
+    assert res.net_eev == -50.0
     assert "REJECT" in res.verdict
 
 
@@ -138,7 +139,7 @@ def test_compute_mcda_stable_winner():
     assert res.winner == "Option A"
     assert res.is_stable is True
     assert "ROBUST" in res.stability_verdict
-    assert "COMMIT PRIMARY TO 'Option A'" in res.verdict
+    assert "RECOMMENDED (SCORED)" in res.verdict
     assert len(res.perturbation_flips) == 0
 
 
@@ -245,7 +246,7 @@ def test_mcda_dominant_winner_is_stable():
     assert res.winner == "Superior"
     assert res.is_stable is True
     assert "ROBUST" in res.stability_verdict
-    assert "COMMIT PRIMARY TO 'Superior'" in res.verdict
+    assert "RECOMMENDED (SCORED)" in res.verdict
     assert any("strictly dominates" in obs for obs in res.pairwise_dominance)
 
 
@@ -265,7 +266,7 @@ def test_mcda_single_criterion_stable():
     assert res.winner == "Option A"
     assert res.is_stable is True
     assert "ROBUST" in res.stability_verdict
-    assert "COMMIT PRIMARY TO 'Option A'" in res.verdict
+    assert "RECOMMENDED (SCORED)" in res.verdict
 
 
 def test_mcda_no_screen_is_advisory_only():

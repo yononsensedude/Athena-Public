@@ -95,7 +95,7 @@ tags: [memory, search, mcp]
 |--------|------|-------------|
 | `id` | UUID | Primary key |
 | `content` | TEXT | Raw text chunk |
-| `embedding` | VECTOR(768) | text-embedding-004 |
+| `embedding` | VECTOR(3072) | gemini-embedding-001 |
 | `metadata` | JSONB | Source file, tags, timestamp |
 
 ### Tag Index (Markdown)
@@ -132,28 +132,17 @@ Total: 8,079 tags
 ## 6. Search Architecture
 
 ```text
- Query
-   │
-   ├── Canonical      (materialized-view keyword match)   · lexical
-   ├── Vector         (Supabase pgvector, cosine)         · semantic
-   ├── SQLite         (local file + tag index)            · lexical
-   ├── Filename       (path/name keyword match)           · lexical
-   ├── Framework Docs (docs + memory-bank grep)           · lexical
-   │
-   ▼
- Adaptive Router → RRF Fusion (k=60) → Cross-Encoder Reranker → Results
+Query → [Keyword Search (Tag Index)] ──┐
+                                        ├── RRF Fusion → Reranker → Results
+Query → [Semantic Search (pgvector)] ──┘
 ```
-
-Reranking runs default-on via a local quantized ONNX cross-encoder (~0.4s cold load) with a `sentence_transformers` fallback; it degrades to raw RRF order only if both are unavailable.
 
 | Metric | Value |
 |--------|-------|
-| **MRR@5** | 0.796 |
-| **Hit@5** | 0.908 |
-| **Coverage** | 0.639 |
-| **Fusion Method** | Reciprocal Rank Fusion (RRF, k=60) with score-modulated weights |
-
-> Retrieval metrics measured 18 Jul 2026 on the reference deployment (operator corpus: 4,000+ memory files, 2,000+ session logs) against a 65-query gold set. Your numbers will vary with corpus size and quality.
+| **Search MRR** | 0.44 (vs 0.21 baseline, +105%) |
+| **Latency** | < 200ms (p95) |
+| **Index Size** | 8,079 tags, 78MB vectors |
+| **Fusion Method** | Reciprocal Rank Fusion (RRF) with score-modulated weights |
 
 ---
 
@@ -162,7 +151,7 @@ Reranking runs default-on via a local quantized ONNX cross-encoder (~0.4s cold l
 | Layer | Technology |
 |-------|-----------|
 | **Language** | Python 3.13 |
-| **Embeddings** | Google text-embedding-004 (768d) |
+| **Embeddings** | Google gemini-embedding-001 (3072d) |
 | **Vector DB** | Supabase + pgvector (IVFFlat index) |
 | **Graph** | ~~Microsoft GraphRAG~~ — REMOVED in S435 (6 June 2026) |
 | **Packaging** | pyproject.toml (PEP 621) |
@@ -196,7 +185,7 @@ Reranking runs default-on via a local quantized ONNX cross-encoder (~0.4s cold l
 | Quicksave overhead | < 500ms | **< 100ms** |
 | Session log write | < 1s | **< 500ms** |
 
-→ Full benchmarks: [BENCHMARKS.md](docs/BENCHMARKS.md)
+→ Full benchmarks: [BENCHMARKS.md](./BENCHMARKS.md)
 
 ---
 
@@ -216,9 +205,9 @@ Reranking runs default-on via a local quantized ONNX cross-encoder (~0.4s cold l
 
 | Document | Purpose |
 |----------|---------|
-| [REQUIREMENTS.md](docs/REQUIREMENTS.md) | User stories, functional requirements, constraints |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, hub model |
-| [BENCHMARKS.md](docs/BENCHMARKS.md) | Quantitative performance data |
-| [FEATURES.md](docs/FEATURES.md) | User-facing feature descriptions |
-| [CAPABILITIES.md](docs/CAPABILITIES.md) | Full automation catalog |
-| [GLOSSARY.md](docs/GLOSSARY.md) | Term definitions |
+| [REQUIREMENTS.md](./REQUIREMENTS.md) | User stories, functional requirements, constraints |
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | System design, data flow, hub model |
+| [BENCHMARKS.md](./BENCHMARKS.md) | Quantitative performance data |
+| [FEATURES.md](./FEATURES.md) | User-facing feature descriptions |
+| [CAPABILITIES.md](./CAPABILITIES.md) | Full automation catalog |
+| [GLOSSARY.md](./GLOSSARY.md) | Term definitions |

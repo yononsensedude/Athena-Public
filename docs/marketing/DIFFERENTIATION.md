@@ -60,6 +60,14 @@ Most agents are "Frozen" — their instructions are static. Athena has a **Metab
 
 **Verdict**: Athena is not a tool you use. She is an organism you cultivate.
 
+> **Epistemic status (2026-07-21 pass — S534 anti-self-mythologizing)**: the three metabolic claims above are **not uniformly running code**:
+>
+> 1. **Nocturnal Consolidation** — `aspirational (gated)`: the Phase-4 nightly consolidation job exists but is deliberately gated OFF; consolidation actually runs at `/end` (`reconcile --execute`), not at 4AM.
+> 2. **DSPy Optimization** — `aspirational`: DSPy is in the capability stack, but no running pipeline currently rewrites prompts from performance data.
+> 3. **Passive Harvesting** — `agent-discretion`: filing happens when the agent applies §0.7 Auto-Documentation, not via a daemon.
+>
+> The load-bearing differentiation is §1–2 and §5 (ownership, orthogonality, portable memory, curated retrieval). And §1's Orthogonality row carries more weight than it looks: the persistent-profile mechanism that powers personalization is the SOTA's largest sycophancy amplifier (+45% agreement sycophancy with user-memory profiles — Jain et al. 2025, arXiv:2509.12517), so the licensed "no" is the countermeasure — and it must stay code-enforced (meta-awareness gate, step 8), not prose.
+
 ---
 
 ## 5. The Knowledge Model (Cached vs. Query)

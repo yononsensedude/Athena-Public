@@ -29,7 +29,7 @@ case "${ACTION}" in
     exec python3 "${REPO_ROOT}/src/athena/intelligence/gto_engine.py" --action "${ACTION}" "$@"
     ;;
   calibration-score)
-    exec python3 "${REPO_ROOT}/examples/scripts/calibration_score.py" "$@"
+    exec python3 "${REPO_ROOT}/.agent/scripts/calibration_score.py" "$@"
     ;;
   *)
     echo "Error: Unapproved action '${ACTION}'. gto_exec.sh is strictly restricted to approved GTO engines." >&2

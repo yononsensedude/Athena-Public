@@ -1,28 +1,28 @@
 # Workflows in Project Athena
 
-> **Last Updated**: 20 August 2026
+> **Last Updated**: 22 July 2026
 
 Workflows are slash commands that trigger predefined sequences of actions. They're the backbone of Athena's session management and deep reasoning capabilities.
 
-> **Total**: 72 workflows (54 root + 18 domain-specific in `.agent/workflows/_domain/`)
+> **Total**: 69 workflows (51 root + 18 domain-specific in `.agent/workflows/_domain/`)
 
 ## Quick Reference
 
 | Command | Purpose | Complexity |
 |---------|---------|------------|
-| [`/start`](examples/workflows/start.md) | Boot session, load identity | Low |
-| [`/end`](examples/workflows/end.md) | Close session, commit to memory | Low |
-| [`/tutorial`](examples/workflows/tutorial.md) | Guided first-session walkthrough | Low |
-| [`/save`](examples/workflows/save.md) | Mid-session checkpoint | Low |
-| [`/think`](examples/workflows/think.md) | Deep reasoning (all phases) | Medium |
-| [`/ultrathink`](examples/workflows/ultrathink.md) | Maximum depth (parallel orchestrator) | High |
-| [`/search`](examples/workflows/search.md) | Web search with citations | Medium |
-| [`/research`](examples/workflows/research.md) | Exhaustive multi-source investigation | High |
-| [`/plan`](examples/workflows/plan.md) | Structured planning with pre-mortem | Medium |
-| [`/brief`](examples/workflows/brief.md) | Pre-prompt clarification protocol | Medium |
-| [`/refactor`](examples/workflows/refactor.md) | Full workspace optimization | High |
-| [`/vibe`](examples/workflows/vibe.md) | Ship at 70%, iterate fast | Low |
-| [`/deploy`](examples/workflows/deploy.md) | Sanitized public repo sync | Medium |
+| [`/start`](.agent/workflows/start.md) | Boot session, load identity | Low |
+| [`/end`](.agent/workflows/end.md) | Close session, commit to memory | Low |
+| [`/tutorial`](.agent/workflows/tutorial.md) | Guided first-session walkthrough | Low |
+| [`/save`](.agent/workflows/save.md) | Mid-session checkpoint | Low |
+| [`/think`](.agent/workflows/think.md) | Deep reasoning (all phases) | Medium |
+| [`/ultrathink`](.agent/workflows/ultrathink.md) | Maximum depth (parallel orchestrator) | High |
+| [`/search`](.agent/workflows/search.md) | Web search with citations | Medium |
+| [`/research`](.agent/workflows/research.md) | Exhaustive multi-source investigation | High |
+| [`/plan`](.agent/workflows/plan.md) | Structured planning with pre-mortem | Medium |
+| [`/brief`](.agent/workflows/brief.md) | Pre-prompt clarification protocol | Medium |
+| [`/refactor`](.agent/workflows/refactor.md) | Full workspace optimization | High |
+| [`/vibe`](.agent/workflows/vibe.md) | Ship at 70%, iterate fast | Low |
+| [`/deploy`](.agent/workflows/deploy.md) | Sanitized public repo sync | Medium |
 
 ---
 
@@ -171,6 +171,6 @@ Step-by-step execution...
 
 ## Further Reading
 
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — System design
-- [GETTING_STARTED.md](docs/GETTING_STARTED.md) — Setup guide
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — System design
+- [GETTING_STARTED.md](./GETTING_STARTED.md) — Setup guide
 - [examples/protocols/](../examples/protocols/) — Decision frameworks

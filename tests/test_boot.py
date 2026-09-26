@@ -1,3 +1,4 @@
+import hashlib
 import sys
 import unittest
 from pathlib import Path
@@ -25,11 +26,48 @@ class TestBootLoaders(unittest.TestCase):
             result = IdentityLoader.verify_semantic_prime()
             self.assertFalse(result)
 
-    def test_memory_loader_paths(self):
-        """Test MemoryLoader has valid path constants."""
-        from athena.boot.constants import LOGS_DIR
+    def test_expected_hash_matches_core_identity(self):
+        """Test that EXPECTED_CORE_HASH matches the actual Core_Identity.md SHA-384 hash."""
+        from athena.boot.constants import EXPECTED_CORE_HASH
 
-        self.assertTrue(str(LOGS_DIR).endswith("session_logs"))
+        core_identity_path = (
+            PROJECT_ROOT
+            / ".framework"
+            / "v8.2-stable"
+            / "modules"
+            / "Core_Identity.md"
+        )
+        content = core_identity_path.read_bytes()
+        computed_hash = hashlib.sha384(content).hexdigest()
+        self.assertEqual(
+            computed_hash,
+            EXPECTED_CORE_HASH,
+            "EXPECTED_CORE_HASH in constants.py is stale. Run: shasum -a 384 .framework/v8.2-stable/modules/Core_Identity.md and update constants.py",
+        )
+
+    def test_memory_loader_paths(self):
+        """Test MemoryLoader has valid path constants inside workspace."""
+        from athena.boot.constants import BOOT_FILES, LOGS_DIR, MEMORY_BANK_DIR
+
+        self.assertTrue(LOGS_DIR.exists(), f"LOGS_DIR does not exist: {LOGS_DIR}")
+        self.assertTrue(
+            LOGS_DIR.is_relative_to(PROJECT_ROOT),
+            f"LOGS_DIR {LOGS_DIR} is outside {PROJECT_ROOT}",
+        )
+        self.assertTrue(
+            MEMORY_BANK_DIR.is_relative_to(PROJECT_ROOT),
+            f"MEMORY_BANK_DIR {MEMORY_BANK_DIR} is outside {PROJECT_ROOT}",
+        )
+        self.assertTrue(
+            MEMORY_BANK_DIR.exists(),
+            f"MEMORY_BANK_DIR does not exist: {MEMORY_BANK_DIR}",
+        )
+        for name, path in BOOT_FILES.items():
+            self.assertTrue(
+                path.is_relative_to(PROJECT_ROOT),
+                f"Boot file {name} ({path}) is outside {PROJECT_ROOT}",
+            )
+            self.assertTrue(path.exists(), f"Boot file {name} ({path}) does not exist")
 
     def test_orchestrator_import(self):
         """Ensure orchestrator can be imported."""
@@ -54,7 +92,7 @@ class TestTokenBudget(unittest.TestCase):
         self.assertGreater(result, 0)
 
     def test_measure_boot_files(self):
-        """measure_boot_files returns a dict with all expected keys."""
+        """measure_boot_files returns a dict with all expected keys and positive counts."""
         from athena.boot.loaders.token_budget import measure_boot_files
 
         counts = measure_boot_files()
@@ -65,6 +103,22 @@ class TestTokenBudget(unittest.TestCase):
         self.assertIn("boot.py output", counts)
         for v in counts.values():
             self.assertIsInstance(v, int)
+        self.assertGreater(counts["activeContext.md"], 0)
+        self.assertGreater(counts["userContext.md"], 0)
+        self.assertGreater(counts["productContext.md"], 0)
+
+    def test_active_context_under_size_budget(self):
+        """activeContext.md must stay within the 60KB (61,440 bytes) budget."""
+        from athena.boot.constants import BOOT_FILES
+
+        active_context = BOOT_FILES.get("activeContext.md")
+        self.assertIsNotNone(active_context)
+        self.assertTrue(active_context.exists())
+        self.assertLessEqual(
+            active_context.stat().st_size,
+            61440,
+            f"activeContext.md is {active_context.stat().st_size} bytes, exceeding 60KB budget",
+        )
 
     def test_gauge_under_budget(self):
         """display_gauge returns False when under the 15K cap."""

@@ -149,25 +149,7 @@ When executing **any** workflow (slash command):
 > include the guard **failing** on the pre-fix state, then passing on the fixed
 > state. Put both in the commit message.
 
-If you cannot make it go red, you have not found the guard's edge — you have
-found its blind spot, and the fix is aimed at the wrong thing.
-
-This exists because the same failure recurred four times across three separate
-agents in one day (2026-07-24/25), each time producing a true-but-misleading
-green:
-
-| Guard | Went green by | What it still could not catch |
-|:---|:---|:---|
-| `sync_version.py` in CI | running the **writer**, which exits 0 always | any version drift |
-| `sync_version.py --check` | covering **3 files that already agreed** | drift in 11 other surfaces |
-| `test_verify_chunk_integrity` | `assert isinstance(res, bool)` | integrity being broken |
-| `test_golden_cases_fire` | `assert len(fired(p)) > 0` | any change in *which* class fires |
-| `privacy_scan.py` blocklist | the file **excluding itself** from the scan | 25 disclosures in its own config |
-
-The shared shape: **optimizing the indicator instead of the property.** Green CI,
-closed alert, "all consistent", N passed — each statement true, each misleading.
-The red run is the cheapest available proof that the indicator is still wired to
-the property.
+If you cannot make it go red, you have not found the guard's edge — you have found its blind spot. Never optimize the indicator over the property (e.g. running a writer instead of a checker, assertions checking types instead of invariants, or scanners excluding themselves). The red run proves the indicator is wired to the invariant.
 
 Corollaries:
 
@@ -206,16 +188,13 @@ Upon delivery or completion claims (`walkthrough.md` or concluding response), ex
 
 ### External Verification Mandate
 
-> **MANDATORY (ALL sessions)**: Every non-trivial response MUST invoke at least ONE external tool before generating output. "External" = anything outside the model's weights (Exocortex, web search, file reads, MCP, grep, commands).
+> **MANDATORY**: Every non-trivial response MUST invoke at least ONE external tool before generating output (Exocortex, web search, file reads, MCP, grep, commands).
 >
-> The Exocortex indexes **1800+ sessions** of lived experience. Web search provides real-time facts. Responding without consulting these when they could enrich or verify the answer is equivalent to ignoring the user's own history and the current state of the world.
+> - **SNIPER (Λ < 10)**: Exempt. Direct answer allowed.
+> - **STANDARD (Λ 10-30)**: Call `context_gate(query)`; satisfy any `missing` requirements.
+> - **ULTRA (Λ > 30)**: Call `context_gate(query)`; requires semantic AND (web OR page-read).
 >
-> **Minimum retrieval by complexity**:
-> - SNIPER (Λ < 10): Exempt. Direct answer allowed.
-> - STANDARD (Λ 10-30): Call `context_gate(query)` before answering; honour its `directive`; if `missing` is non-empty, satisfy it before answering.
-> - ULTRA (Λ > 30): Call `context_gate(query)` before answering; requires semantic AND (web OR page-read).
->
-> **Epistemic status**: `code-enforced` (tool surface — `context_gate` exists and computes the bundle; invocation is mechanically enforced in Antigravity via `.agents/hooks.json` Stop lifecycle gate `stop_governance_gate.py` which blocks completion if unverified).
+> **Epistemic status**: `code-enforced` via `.agents/hooks.json` Stop lifecycle gate `stop_governance_gate.py`.
 
 ---
 
@@ -251,4 +230,4 @@ To ensure Game-Theory Optimal (GTO) operations, apply these core engineering dir
 - **System**: v9.9.9
 - **Last Updated**: 2026-07-22
 - **Canonical Counts**: `.agent/config/CAPS.json` (single source of truth; regenerate via commands in CAPS.json `recount_rules`)
-- **Pattern Source**: Vercel "AGENTS.md vs Skills" Research + OpenClaw Multi-Agent Safety Rules + Claude Code Source Steal (instructkr/claude-code, 2026-03-31) + santifer/career-ops Steal (DATA_CONTRACT, _shared.md, /do router, 2026-04-12) + GTO consolidation pass (2026-04-18: index drift fix, broken-ref repair, _domain + conditional-skills surfacing) + Hermes Agent Steal (NousResearch/hermes-agent, 2026-05-11: skill-compiler, curator lifecycle model) + Anthropic Steal (anthropics/knowledge-work-plugins, 2026-05-24: CONNECTORS.md, glossary.md, dashboard-builder, scan_skill.py, interview-mode, checkpoint-pause, argument-hint) + Athena-Public Privacy Remediation + Architecture Model Sync (2026-05-30) + Karpathy CLAUDE.md Steal (r/ClaudeCode, 2026-06-01: Ask-Don't-Assume, Flag-Uncertainty, Codebase-Documentation-Sync)
+- **Pattern Source**: Synthesized from Vercel, OpenClaw, Claude Code, Career-Ops, Hermes Agent, Anthropic plugins, and Karpathy CLAUDE.md best practices (canonical index in CAPS.json / CANONICAL.md).
